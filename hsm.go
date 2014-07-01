@@ -73,7 +73,12 @@ func NewHSM(top *State) (*HSM, error) {
     return hsm, nil
 }
 
+func (hsm *HSM) Init(event *Event) {
+
+}
+
 func (hsm *HSM) Dispatch(event *Event) {
+
     newState = hsm.State(event)
     HSM.State = newState
 }
