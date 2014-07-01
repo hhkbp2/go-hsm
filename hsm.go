@@ -3,6 +3,7 @@ package hsm
 import "container/List"
 import "reflect"
 import "fmt"
+import "assert"
 
 const (
     EventEmpty = iota
@@ -11,6 +12,8 @@ const (
     EventExit
     EventUser
 )
+
+const TopStateID = "TOP"
 
 type Event interface {
     Type() uint32
@@ -27,13 +30,14 @@ func (stdEvent *StdEvent) Type() uint32 {
 type State interface {
     ID() string
 
-    GetSuper() *State
+    Super() *State
     SetSuper(super *State) void
-    GetChildren() []*State
+    Children() []*State
     AddChild(hsm *HSM, child *State) void
-    GetState() *State
+    State() *State
     setState(state *State) void
 
+    Init(hsm *HSM, event *Event) *State
     Entry(hsm *HSM, event *Event) *State
     Exit(hsm *HSM, event *Event) *State
     Handle(hsm *HSM, event *Event) *State
@@ -65,45 +69,172 @@ type HSM struct {
     NodeMap     map[string]*State
 }
 
-func NewHSM(top *State) (*HSM, error) {
+// initial must set top as parent
+func NewHSM(top, initial *State) (*HSM, error) {
     hsm = &HSM{
-        SourceState: nil,
+        SourceState: initial,
         State:       top,
         NodeMap:     make(map[string]*State)}
+    hsm.NodeMap[top.ID()] = top
     return hsm, nil
 }
 
-func (hsm *HSM) Init(event *Event) {
+func (hsm *HSM) Init() {
+    hsm.init(&StdEvent{EventEmpty})
+}
 
+func (hsm *HSM) init(event *Event) {
+    // health check
+    assert.NotEqual(nil, hsm.State)
+    assert.NotEqual(nil, hsm.SourceState)
+    // check top state initialized. hsm.State.ID() should be "TOP"
+    assert.Equal(hsm.NodeMap[hsm.State.ID()], hsm.State) // HSM not executed yet
+    // save State in a temporary
+    s := hsm.State
+    // top-most initial transition
+    Trigger(hsm, hsm.SourceState, event)
+    // initial transition must go *one* level deep
+    assert.Equal(s, Trigger(hsm, hsm.State, &StdEvent{EventEmpty}))
+    // update the termporary
+    s = hsm.State
+    // enter the state
+    Trigger(hsm, s, &StdEvent{EventEntry})
+    for Trigger(hsm, s, &StdEvent{EventInit}) == nil { // init handled?
+        // initial transition must go *one* level deep
+        assert.Equal(s, Trigger(hsm, hsm.State, &StdEvent{EventEmpty}))
+        s = hsm.State
+        // enter the substate
+        Trigger(hsm, s, &StdEvent{EventEntry})
+    }
+    // we are in well-initialized state now
+}
+
+func (hsm *HSM) IsInState(state *State) bool {
+    // nagivate from current state up to all super state and
+    // try to find specified `state'
+    for s := hsm.State; s != nil; s = Trigger(hsm.State, &StdEvent{EventEmpty}) {
+        if s == state {
+            // a match is found
+            return true
+        }
+    }
+    // no match found
+    return false
 }
 
 func (hsm *HSM) Dispatch(event *Event) {
-
-    newState = hsm.State(event)
-    HSM.State = newState
+    // Use `SourceState' to record the state which handle the event indeed(which
+    // could be super, super-super, ... state).
+    // `State' would stay unchange pointing at the current(most concrete) state.
+    for hsm.SourceState = hsm.State; hsm.SourceState != nil; {
+        hsm.SourceState = Trigger(hsm, hsm.SourceState, event)
+    }
 }
 
-func TRIGGER_ENTRY(hsm *HSM, state *State, event *Event) *State {
-    return node.Entry(hsm, event)
+func Trigger(hsm *HSM, state *State, event *Event) *State {
+    // dispatch the specified `event' to the corresponding method
+    switch event.Type() {
+    case EventEmpty:
+        return state.Super()
+    case EventInit:
+        return state.Init(hsm, event)
+    case EventEntry:
+        return state.Entry(hsm, event)
+    case EventExit:
+        return state.Exit(hsm, event)
+    default:
+        return state.Handle(hsm, event)
+    }
 }
 
-func TRIGGER_EXIT(hsm *HSM, state *State, event *Event) *State {
-    return state.Exit(hsm, event)
-}
-
-func TRIGGER(hsm *HSM, state *State, event *Event) *State {
-    return state.Handle(hsm, event)
-}
-
-func (hsm *HSM) TRAN(targetID string, event *Event) {
+func (hsm *HSM) Tran(targetID string, event *Event) {
+    assert.NotEqual(TopStateID, targetID)
     target = hsm.NodeMap[targetID]
     for s := hsm.State; s != hsm.SourceState; {
-        t := TRIGGER_EXIT(hsm, s, event)
+        // we are about to dereference `s'
+        assert.NotEqual(nil, s)
+        t := Trigger(hsm, s, &StdEvent{EventExit})
         if t != nil {
             s = t
         } else {
-            s = TRIGGER(hsm, s, &StdEvent{EventEmpty})
+            s = Trigger(hsm, s, &StdEvent{EventEmpty})
         }
+    }
+
+    stateChain := list.List.New()
+    stateChain.Init()
+
+    stateChain.PushBack(nil)
+    stateChain.PushBack(target)
+
+    // (a) check `SourceState' == `target' (transition to self)
+    if hsm.SourceState == target {
+        Trigger(hsm, hsm.SourceState, &StdEvent{EventExit})
+        goto inLCA
+    }
+    // (b) check `SourceState' == `target.Super()'
+    p := Trigger(hsm, target, &StdEvent{EventEmpty})
+    if hsm.SourceState == p {
+        goto inLCA
+    }
+    // (c) check `SourceState.Super()' == `target.Super()' (most common)
+    q := Trigger(hsm, hsm.SourceState, &StdEvent{EventEmpty})
+    if q == p {
+        Trigger(hsm, hsm.SourceState, &StdEvent{EventExit})
+        goto inLCA
+    }
+    // (d) check `SourceState.Super()' == `target'
+    if q == target {
+        Trigger(hsm, hsm.SourceState, &StdEvent{EventExit})
+        stateChain.Remove(stateChain.Back())
+        goto inLCA
+    }
+    // (e) check rest of `SourceState' == `target.Super().Super()...'  hierarchy
+    stateChain.PushBack(p)
+    s = Trigger(hsm, p, &StdEvent{EventEmpty})
+    for s != nil {
+        if hsm.SourceState == s {
+            goto inLCA
+        }
+        stateChain.PushBack(s)
+        s = Trigger(hsm, s, &StdEvent{EventEmpty})
+    }
+    // exit source state
+    Trigger(hsm, hsm.SourceState, &StdEvent{EventExit})
+    // (f) check rest of `SourceState.Super()' == `target.Super().Super()...'
+    for lca := stateChain.Back(); lca != nil; lca = lca.Prev() {
+        if q == lca {
+            // do not enter the LCA
+            stateChain.Remove(stateChain.Back())
+            goto inLCA
+        }
+    }
+    // (g) check each `SourceState.Super().Super()...' for target...
+    for s = q; s != nil; s = Trigger(s, &StdEvent{EventEmpty}) {
+        for lca := stateChain.Back(); lca != nil; lca = lca.Prev() {
+            if s == lca {
+                stateChain = TruncateList(stateChain, lca)
+                goto inLCA
+            }
+        }
+        Trigger(hsm, s, &StdEvent{EventExit})
+    }
+    // malformed HSM
+    assert.True(false)
+inLCA: // now we are in the LCA of `SourceState' and `target'
+    // retrace the entry path in reverse order
+    for s = stateChain.Back(); s != nil && s.Value != nil; {
+        Trigger(hsm, s, &StdEvent{EventEntry}) // enter `s' state
+        stateChain.Remove(stateChain.Back())
+        s = stateChain.Back()
+    }
+    // update current state
+    hsm.State = target
+    for Trigger(hsm, target, &StdEvent{EventInit}) == nil {
+        // initial transition must go *one* level deep
+        assertEqual(s, Trigger(hsm, hsm.State, &StdEvent{EventEmpty}))
+        target = hsm.State
+        Trigger(hsm, target, &StdEvent{EventEntry})
     }
 }
 
@@ -178,7 +309,7 @@ func (*TopState) Name() string {
 }
 
 func (*TopState) Entry(event *Event) {
-    TRAN("S1")
+    hsm.Tran("S1")
     return
 }
 
