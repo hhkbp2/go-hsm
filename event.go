@@ -16,8 +16,8 @@ type StdEvent struct {
     Type_ uint32
 }
 
-func NewStdEvent(type_ uint32) (*StdEvent, error) {
-    return &StdEvent{type_}, nil
+func NewStdEvent(type_ uint32) *StdEvent {
+    return &StdEvent{type_}
 }
 
 func (stdEvent *StdEvent) Type() uint32 {

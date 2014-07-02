@@ -20,7 +20,7 @@ type StdHSM struct {
 }
 
 // initial must set top as parent
-func NewStdHSM(top, initial State) (*StdHSM, error) {
+func NewStdHSM(top, initial State) *StdHSM {
     AssertEqual(TopStateID, top.ID())
     AssertEqual(InitialStateID, initial.ID())
     hsm := &StdHSM{
@@ -29,7 +29,23 @@ func NewStdHSM(top, initial State) (*StdHSM, error) {
         StateTable:  make(map[string]State),
     }
     hsm.StateTable[top.ID()] = top
-    return hsm, nil
+    // setup state table
+    hsm.setupStateTable()
+    return hsm
+}
+
+func (self *StdHSM) setupStateTable() {
+    for traverse_queue := self.State.Children(); len(traverse_queue) != 0; {
+        state := traverse_queue[0]
+        traverse_queue = traverse_queue[1:]
+        _, ok := self.StateTable[state.ID()]
+        AssertFalse(ok)
+        self.StateTable[state.ID()] = state
+        children := state.Children()
+        for _, state := range children {
+            traverse_queue = append(traverse_queue, state)
+        }
+    }
 }
 
 func (self *StdHSM) Init() {
@@ -95,7 +111,8 @@ func (self *StdHSM) isIn(state State) bool {
 
 func (self *StdHSM) QInit(targetStateID string) {
     AssertNotEqual(TopStateID, targetStateID)
-    target := self.StateTable[targetStateID]
+    target, ok := self.StateTable[targetStateID]
+    AssertTrue(ok)
     self.qinit(target)
 }
 
@@ -105,7 +122,8 @@ func (self *StdHSM) qinit(state State) {
 
 func (self *StdHSM) QTran(targetStateID string) {
     AssertNotEqual(TopStateID, targetStateID)
-    target := self.StateTable[targetStateID]
+    target, ok := self.StateTable[targetStateID]
+    AssertTrue(ok)
     self.qtran(target)
 }
 
@@ -174,7 +192,7 @@ func (self *StdHSM) qtran(target State) {
     for s = q; s != nil; s = Trigger(self, s, &StdEvent{EventEmpty}) {
         for lca := stateChain.Back(); lca != nil; lca = lca.Prev() {
             if s == lca.Value {
-                stateChain = TruncateList(stateChain, lca)
+                stateChain = ListTruncate(stateChain, lca)
                 goto inLCA
             }
         }
