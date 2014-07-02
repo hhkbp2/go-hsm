@@ -1,7 +1,6 @@
 package hsm
 
 import "container/list"
-import "github.com/hhkbp2/go-hsm/assert"
 
 func Trigger(hsm *HSM, state State, event Event) State {
     // dispatch the specified `event' to the corresponding method
@@ -20,8 +19,8 @@ func Trigger(hsm *HSM, state State, event Event) State {
 }
 
 func TruncateList(l *list.List, e *list.Element) *list.List {
-    assert.NotEqual(nil, l)
-    assert.NotEqual(nil, e)
+    AssertNotEqual(nil, l)
+    AssertNotEqual(nil, e)
     // remove `e' and all element after `e' from `l'
     var next *list.Element
     for ; e != nil; e = next {

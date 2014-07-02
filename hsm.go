@@ -1,7 +1,6 @@
 package hsm
 
 import "container/list"
-import "github.com/hhkbp2/go-hsm/assert"
 
 type HSM struct {
     SourceState State
@@ -26,23 +25,23 @@ func (hsm *HSM) Init() {
 
 func (hsm *HSM) init(event Event) {
     // health check
-    assert.NotEqual(nil, hsm.State)
-    assert.NotEqual(nil, hsm.SourceState)
+    AssertNotEqual(nil, hsm.State)
+    AssertNotEqual(nil, hsm.SourceState)
     // check top state initialized. hsm.State.ID() should be "TOP"
-    assert.Equal(hsm.StateTable[TopStateID], hsm.State) // HSM not executed yet
+    AssertEqual(hsm.StateTable[TopStateID], hsm.State) // HSM not executed yet
     // save State in a temporary
     s := hsm.State
     // top-most initial transition
     Trigger(hsm, hsm.SourceState, event)
     // initial transition must go *one* level deep
-    assert.Equal(s, Trigger(hsm, hsm.State, &StdEvent{EventEmpty}))
+    AssertEqual(s, Trigger(hsm, hsm.State, &StdEvent{EventEmpty}))
     // update the termporary
     s = hsm.State
     // enter the state
     Trigger(hsm, s, &StdEvent{EventEntry})
     for Trigger(hsm, s, &StdEvent{EventInit}) == nil { // init handled?
         // initial transition must go *one* level deep
-        assert.Equal(s, Trigger(hsm, hsm.State, &StdEvent{EventEmpty}))
+        AssertEqual(s, Trigger(hsm, hsm.State, &StdEvent{EventEmpty}))
         s = hsm.State
         // enter the substate
         Trigger(hsm, s, &StdEvent{EventEntry})
@@ -82,7 +81,7 @@ func (hsm *HSM) GetState() State {
 }
 
 func (hsm *HSM) QInit(targetID string) {
-    assert.NotEqual(TopStateID, targetID)
+    AssertNotEqual(TopStateID, targetID)
     target := hsm.StateTable[targetID]
     hsm.qinit(target)
 }
@@ -92,7 +91,7 @@ func (hsm *HSM) qinit(state State) {
 }
 
 func (hsm *HSM) QTran(targetID string, event Event) {
-    assert.NotEqual(TopStateID, targetID)
+    AssertNotEqual(TopStateID, targetID)
     target := hsm.StateTable[targetID]
     hsm.qtran(target, event)
 }
@@ -101,7 +100,7 @@ func (hsm *HSM) qtran(target State, event Event) {
     var p, q, s State
     for s := hsm.State; s != hsm.SourceState; {
         // we are about to dereference `s'
-        assert.NotEqual(nil, s)
+        AssertNotEqual(nil, s)
         t := Trigger(hsm, s, &StdEvent{EventExit})
         if t != nil {
             s = t
@@ -169,12 +168,12 @@ func (hsm *HSM) qtran(target State, event Event) {
         Trigger(hsm, s, &StdEvent{EventExit})
     }
     // malformed HSM
-    assert.True(false)
+    AssertTrue(false)
 inLCA: // now we are in the LCA of `SourceState' and `target'
     // retrace the entry path in reverse order
     for e := stateChain.Back(); e != nil && e.Value != nil; {
         s, ok := e.Value.(State)
-        assert.Equal(true, ok)
+        AssertEqual(true, ok)
         Trigger(hsm, s, &StdEvent{EventEntry}) // enter `s' state
         stateChain.Remove(stateChain.Back())
         e = stateChain.Back()
@@ -183,7 +182,7 @@ inLCA: // now we are in the LCA of `SourceState' and `target'
     hsm.State = target
     for Trigger(hsm, target, &StdEvent{EventInit}) == nil {
         // initial transition must go *one* level deep
-        assert.Equal(s, Trigger(hsm, hsm.State, &StdEvent{EventEmpty}))
+        AssertEqual(s, Trigger(hsm, hsm.State, &StdEvent{EventEmpty}))
         target = hsm.State
         Trigger(hsm, target, &StdEvent{EventEntry})
     }

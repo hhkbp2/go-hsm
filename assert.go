@@ -1,4 +1,4 @@
-package assert
+package hsm
 
 import "reflect"
 import "fmt"

@@ -1,7 +1,5 @@
 package hsm
 
-import "github.com/hhkbp2/go-hsm/assert"
-
 const (
     TopStateID     = "TOP"
     InitialStateID = "Initial"
@@ -91,6 +89,5 @@ func (self *Initial) Init(hsm *HSM, event Event) (state State) {
 
 func (self *Initial) Handle(hsm *HSM, event Event) (state State) {
     // should never be called
-    assert.True(false)
     return self.Super()
 }
