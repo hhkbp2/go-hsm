@@ -2,7 +2,7 @@ package hsm
 
 import "container/list"
 import "fmt"
-import "assert"
+import "github.com/hhkbp2/go-hsm/assert"
 
 const (
     EventEmpty = iota
@@ -25,11 +25,15 @@ type Event interface {
 }
 
 type StdEvent struct {
-    type_ uint32
+    Type_ uint32
+}
+
+func NewStdEvent(type_ uint32) (*StdEvent, error) {
+    return &StdEvent{type_}, nil
 }
 
 func (stdEvent *StdEvent) Type() uint32 {
-    return stdEvent.type_
+    return stdEvent.Type_
 }
 
 type State interface {
@@ -80,13 +84,19 @@ func NewHSM(top, initial State) (*HSM, error) {
     hsm := &HSM{
         SourceState: initial,
         State:       top,
-        StateTable:  make(map[string]State)}
+        StateTable:  make(map[string]State),
+    }
     hsm.StateTable[top.ID()] = top
     return hsm, nil
 }
 
+func (hsm *HSM) PrintS() {
+    fmt.Println("hsm State: ", hsm.State.ID())
+    fmt.Println("hsm SourceState: ", hsm.SourceState.ID())
+}
+
 func (hsm *HSM) Init() {
-    hsm.init(&StdEvent{EventEmpty})
+    hsm.init(&StdEvent{EventInit})
 }
 
 func (hsm *HSM) init(event Event) {
@@ -94,7 +104,7 @@ func (hsm *HSM) init(event Event) {
     assert.NotEqual(nil, hsm.State)
     assert.NotEqual(nil, hsm.SourceState)
     // check top state initialized. hsm.State.ID() should be "TOP"
-    assert.Equal(hsm.StateTable[hsm.State.ID()], hsm.State) // HSM not executed yet
+    assert.Equal(hsm.StateTable[TopStateID], hsm.State) // HSM not executed yet
     // save State in a temporary
     s := hsm.State
     // top-most initial transition
@@ -310,6 +320,30 @@ func (top *Top) Handle(hsm *HSM, event Event) (state State) {
     return nil
 }
 
+type Initial struct {
+    StateHead
+}
+
+func NewInitial(super State) (*Initial, error) {
+    return &Initial{MakeStateHead(super)}, nil
+}
+
+func (*Initial) ID() string {
+    return "Initial"
+}
+
+func (self *Initial) Init(hsm *HSM, event Event) (state State) {
+    fmt.Println("GLOBAL INIT in", self.ID(), ":Init()")
+    hsm.QInit("S1")
+    return nil
+}
+
+func (self *Initial) Handle(hsm *HSM, event Event) (state State) {
+    // should never be called
+    assert.True(false)
+    return self.Super()
+}
+
 type S1 struct {
     StateHead
 }
@@ -412,10 +446,12 @@ func (self *S12) Handle(hsm *HSM, event Event) (state State) {
 
 func NewWorld() (*HSM, error) {
     top, _ := NewTop()
+    initial, _ := NewInitial(top)
     s1, _ := NewS1(top)
     s11, _ := NewS11(s1)
     s12, _ := NewS12(s1)
-    hsm, _ := NewHSM(top, s1)
+    hsm, _ := NewHSM(top, initial)
+    hsm.StateTable[initial.ID()] = initial
     hsm.StateTable[s1.ID()] = s1
     hsm.StateTable[s11.ID()] = s11
     hsm.StateTable[s12.ID()] = s12
