@@ -10,7 +10,7 @@ type HSM interface {
     IsIn(stateID string) bool
 
     QInit(targetStateID string)
-    QTran(targetStateID string, event Event)
+    QTran(targetStateID string)
 }
 
 type StdHSM struct {
@@ -103,13 +103,13 @@ func (self *StdHSM) qinit(state State) {
     self.State = state
 }
 
-func (self *StdHSM) QTran(targetStateID string, event Event) {
+func (self *StdHSM) QTran(targetStateID string) {
     AssertNotEqual(TopStateID, targetStateID)
     target := self.StateTable[targetStateID]
-    self.qtran(target, event)
+    self.qtran(target)
 }
 
-func (self *StdHSM) qtran(target State, event Event) {
+func (self *StdHSM) qtran(target State) {
     var p, q, s State
     for s := self.State; s != self.SourceState; {
         // we are about to dereference `s'
