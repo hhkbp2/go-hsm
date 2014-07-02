@@ -10,10 +10,10 @@ type State interface {
 
     Super() (super State)
 
-    Init(hsm *HSM, event Event) (state State)
-    Entry(hsm *HSM, event Event) (state State)
-    Exit(hsm *HSM, event Event) (state State)
-    Handle(hsm *HSM, event Event) (state State)
+    Init(hsm HSM, event Event) (state State)
+    Entry(hsm HSM, event Event) (state State)
+    Exit(hsm HSM, event Event) (state State)
+    Handle(hsm HSM, event Event) (state State)
 }
 
 type StateHead struct {
@@ -26,20 +26,20 @@ func MakeStateHead(super State) StateHead {
     }
 }
 
-func (head *StateHead) Super() State {
-    return head.super
+func (self *StateHead) Super() State {
+    return self.super
 }
 
-func (head *StateHead) Init(hsm *HSM, event Event) (state State) {
-    return head.Super()
+func (self *StateHead) Init(hsm HSM, event Event) (state State) {
+    return self.Super()
 }
 
-func (head *StateHead) Entry(hsm *HSM, event Event) (state State) {
-    return head.Super()
+func (self *StateHead) Entry(hsm HSM, event Event) (state State) {
+    return self.Super()
 }
 
-func (head *StateHead) Exit(hsm *HSM, event Event) (state State) {
-    return head.Super()
+func (self *StateHead) Exit(hsm HSM, event Event) (state State) {
+    return self.Super()
 }
 
 type Top struct {
@@ -50,23 +50,23 @@ func NewTop() (*Top, error) {
     return &Top{MakeStateHead(nil)}, nil
 }
 
-func (top *Top) ID() string {
+func (self *Top) ID() string {
     return TopStateID
 }
 
-func (top *Top) Init(hsm *HSM, event Event) (state State) {
+func (self *Top) Init(hsm HSM, event Event) (state State) {
     return nil
 }
 
-func (top *Top) Entry(hsm *HSM, event Event) (state State) {
+func (self *Top) Entry(hsm HSM, event Event) (state State) {
     return nil
 }
 
-func (top *Top) Exit(hsm *HSM, event Event) (state State) {
+func (self *Top) Exit(hsm HSM, event Event) (state State) {
     return nil
 }
 
-func (top *Top) Handle(hsm *HSM, event Event) (state State) {
+func (self *Top) Handle(hsm HSM, event Event) (state State) {
     return nil
 }
 
@@ -82,12 +82,12 @@ func (*Initial) ID() string {
     return InitialStateID
 }
 
-func (self *Initial) Init(hsm *HSM, event Event) (state State) {
+func (self *Initial) Init(hsm HSM, event Event) (state State) {
     hsm.QInit("S1")
     return nil
 }
 
-func (self *Initial) Handle(hsm *HSM, event Event) (state State) {
+func (self *Initial) Handle(hsm HSM, event Event) (state State) {
     // should never be called
     return self.Super()
 }

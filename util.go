@@ -2,7 +2,7 @@ package hsm
 
 import "container/list"
 
-func Trigger(hsm *HSM, state State, event Event) State {
+func Trigger(hsm HSM, state State, event Event) State {
     // dispatch the specified `event' to the corresponding method
     switch event.Type() {
     case EventEmpty:
