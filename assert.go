@@ -3,13 +3,13 @@ package assert
 import "reflect"
 import "fmt"
 
-func Equal(expected, actual interface{}) {
+func AssertEqual(expected, actual interface{}) {
     if !ObjectAreEqual(expected, actual) {
         panic(fmt.Sprintf("Equal(%#v, %#v) fail", expected, actual))
     }
 }
 
-func NotEqual(expected, actual interface{}) {
+func AssertNotEqual(expected, actual interface{}) {
     if ObjectAreEqual(expected, actual) {
         panic(fmt.Sprintf("NotEqual(%#v, %#v) fail", expected, actual))
     }
@@ -42,13 +42,13 @@ func ObjectAreEqual(expected, actual interface{}) bool {
     return false
 }
 
-func True(value bool) {
+func AssertTrue(value bool) {
     if !value {
         panic(fmt.Sprintf("True(value=%#v) fail", value))
     }
 }
 
-func False(value bool) {
+func AssertFalse(value bool) {
     if value {
         panic(fmt.Sprintf("False(value=%#v) fail", value))
     }
