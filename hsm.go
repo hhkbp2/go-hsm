@@ -1,7 +1,6 @@
 package hsm
 
-import "container/List"
-import "reflect"
+import "container/list"
 import "fmt"
 import "assert"
 
@@ -11,6 +10,12 @@ const (
     EventEntry
     EventExit
     EventUser
+)
+
+const (
+    Event1 = EventUser + iota
+    Event2
+    Event3
 )
 
 const TopStateID = "TOP"
@@ -30,52 +35,53 @@ func (stdEvent *StdEvent) Type() uint32 {
 type State interface {
     ID() string
 
-    Super() *State
-    SetSuper(super *State) void
-    Children() []*State
-    AddChild(hsm *HSM, child *State) void
-    State() *State
-    setState(state *State) void
+    Super() (super State)
 
-    Init(hsm *HSM, event *Event) *State
-    Entry(hsm *HSM, event *Event) *State
-    Exit(hsm *HSM, event *Event) *State
-    Handle(hsm *HSM, event *Event) *State
+    Init(hsm *HSM, event Event) (state State)
+    Entry(hsm *HSM, event Event) (state State)
+    Exit(hsm *HSM, event Event) (state State)
+    Handle(hsm *HSM, event Event) (state State)
 }
 
 type StateHead struct {
-    super    *State
-    children list.List
+    super State
 }
 
-func NewStateHead(super *State) (*StateHead, error) {
-    children = list.List.New()
-    children.Init()
-    head = &StateHead{
-        super:    super,
-        children: children,
+func MakeStateHead(super State) StateHead {
+    return StateHead{
+        super: super,
     }
-    return &head, nil
 }
 
-func (head *StateHead) AddChild(hsm *HSM, child *State) {
-    head.children.PushBack(child)
-    hsm.NodeMap[child.state.ID()] = child
+func (head *StateHead) Super() State {
+    return head.super
+}
+
+func (head *StateHead) Init(hsm *HSM, event Event) (state State) {
+    return head.Super()
+}
+
+func (head *StateHead) Entry(hsm *HSM, event Event) (state State) {
+    return head.Super()
+}
+
+func (head *StateHead) Exit(hsm *HSM, event Event) (state State) {
+    return head.Super()
 }
 
 type HSM struct {
-    SourceState *State
-    State       *State
-    NodeMap     map[string]*State
+    SourceState State
+    State       State
+    StateTable  map[string]State
 }
 
 // initial must set top as parent
-func NewHSM(top, initial *State) (*HSM, error) {
-    hsm = &HSM{
+func NewHSM(top, initial State) (*HSM, error) {
+    hsm := &HSM{
         SourceState: initial,
         State:       top,
-        NodeMap:     make(map[string]*State)}
-    hsm.NodeMap[top.ID()] = top
+        StateTable:  make(map[string]State)}
+    hsm.StateTable[top.ID()] = top
     return hsm, nil
 }
 
@@ -83,12 +89,12 @@ func (hsm *HSM) Init() {
     hsm.init(&StdEvent{EventEmpty})
 }
 
-func (hsm *HSM) init(event *Event) {
+func (hsm *HSM) init(event Event) {
     // health check
     assert.NotEqual(nil, hsm.State)
     assert.NotEqual(nil, hsm.SourceState)
     // check top state initialized. hsm.State.ID() should be "TOP"
-    assert.Equal(hsm.NodeMap[hsm.State.ID()], hsm.State) // HSM not executed yet
+    assert.Equal(hsm.StateTable[hsm.State.ID()], hsm.State) // HSM not executed yet
     // save State in a temporary
     s := hsm.State
     // top-most initial transition
@@ -109,10 +115,15 @@ func (hsm *HSM) init(event *Event) {
     // we are in well-initialized state now
 }
 
-func (hsm *HSM) IsInState(state *State) bool {
+func (hsm *HSM) IsIn(stateID string) bool {
+    state := hsm.StateTable[stateID]
+    return hsm.isIn(state)
+}
+
+func (hsm *HSM) isIn(state State) bool {
     // nagivate from current state up to all super state and
     // try to find specified `state'
-    for s := hsm.State; s != nil; s = Trigger(hsm.State, &StdEvent{EventEmpty}) {
+    for s := hsm.State; s != nil; s = Trigger(hsm, hsm.State, &StdEvent{EventEmpty}) {
         if s == state {
             // a match is found
             return true
@@ -122,7 +133,7 @@ func (hsm *HSM) IsInState(state *State) bool {
     return false
 }
 
-func (hsm *HSM) Dispatch(event *Event) {
+func (hsm *HSM) Dispatch(event Event) {
     // Use `SourceState' to record the state which handle the event indeed(which
     // could be super, super-super, ... state).
     // `State' would stay unchange pointing at the current(most concrete) state.
@@ -131,7 +142,7 @@ func (hsm *HSM) Dispatch(event *Event) {
     }
 }
 
-func Trigger(hsm *HSM, state *State, event *Event) *State {
+func Trigger(hsm *HSM, state State, event Event) State {
     // dispatch the specified `event' to the corresponding method
     switch event.Type() {
     case EventEmpty:
@@ -147,9 +158,28 @@ func Trigger(hsm *HSM, state *State, event *Event) *State {
     }
 }
 
-func (hsm *HSM) Tran(targetID string, event *Event) {
+func (hsm *HSM) GetState() State {
+    return hsm.State
+}
+
+func (hsm *HSM) QInit(targetID string) {
     assert.NotEqual(TopStateID, targetID)
-    target = hsm.NodeMap[targetID]
+    target := hsm.StateTable[targetID]
+    hsm.qinit(target)
+}
+
+func (hsm *HSM) qinit(state State) {
+    hsm.State = state
+}
+
+func (hsm *HSM) QTran(targetID string, event Event) {
+    assert.NotEqual(TopStateID, targetID)
+    target := hsm.StateTable[targetID]
+    hsm.qtran(target, event)
+}
+
+func (hsm *HSM) qtran(target State, event Event) {
+    var p, q, s State
     for s := hsm.State; s != hsm.SourceState; {
         // we are about to dereference `s'
         assert.NotEqual(nil, s)
@@ -161,7 +191,7 @@ func (hsm *HSM) Tran(targetID string, event *Event) {
         }
     }
 
-    stateChain := list.List.New()
+    stateChain := list.New()
     stateChain.Init()
 
     stateChain.PushBack(nil)
@@ -173,12 +203,12 @@ func (hsm *HSM) Tran(targetID string, event *Event) {
         goto inLCA
     }
     // (b) check `SourceState' == `target.Super()'
-    p := Trigger(hsm, target, &StdEvent{EventEmpty})
+    p = Trigger(hsm, target, &StdEvent{EventEmpty})
     if hsm.SourceState == p {
         goto inLCA
     }
     // (c) check `SourceState.Super()' == `target.Super()' (most common)
-    q := Trigger(hsm, hsm.SourceState, &StdEvent{EventEmpty})
+    q = Trigger(hsm, hsm.SourceState, &StdEvent{EventEmpty})
     if q == p {
         Trigger(hsm, hsm.SourceState, &StdEvent{EventExit})
         goto inLCA
@@ -203,16 +233,16 @@ func (hsm *HSM) Tran(targetID string, event *Event) {
     Trigger(hsm, hsm.SourceState, &StdEvent{EventExit})
     // (f) check rest of `SourceState.Super()' == `target.Super().Super()...'
     for lca := stateChain.Back(); lca != nil; lca = lca.Prev() {
-        if q == lca {
+        if q == lca.Value {
             // do not enter the LCA
             stateChain.Remove(stateChain.Back())
             goto inLCA
         }
     }
     // (g) check each `SourceState.Super().Super()...' for target...
-    for s = q; s != nil; s = Trigger(s, &StdEvent{EventEmpty}) {
+    for s = q; s != nil; s = Trigger(hsm, s, &StdEvent{EventEmpty}) {
         for lca := stateChain.Back(); lca != nil; lca = lca.Prev() {
-            if s == lca {
+            if s == lca.Value {
                 stateChain = TruncateList(stateChain, lca)
                 goto inLCA
             }
@@ -223,111 +253,172 @@ func (hsm *HSM) Tran(targetID string, event *Event) {
     assert.True(false)
 inLCA: // now we are in the LCA of `SourceState' and `target'
     // retrace the entry path in reverse order
-    for s = stateChain.Back(); s != nil && s.Value != nil; {
+    for e := stateChain.Back(); e != nil && e.Value != nil; {
+        s, ok := e.Value.(State)
+        assert.Equal(true, ok)
         Trigger(hsm, s, &StdEvent{EventEntry}) // enter `s' state
         stateChain.Remove(stateChain.Back())
-        s = stateChain.Back()
+        e = stateChain.Back()
     }
     // update current state
     hsm.State = target
     for Trigger(hsm, target, &StdEvent{EventInit}) == nil {
         // initial transition must go *one* level deep
-        assertEqual(s, Trigger(hsm, hsm.State, &StdEvent{EventEmpty}))
+        assert.Equal(s, Trigger(hsm, hsm.State, &StdEvent{EventEmpty}))
         target = hsm.State
         Trigger(hsm, target, &StdEvent{EventEntry})
     }
 }
 
+func TruncateList(l *list.List, e *list.Element) *list.List {
+    assert.NotEqual(nil, l)
+    assert.NotEqual(nil, e)
+    // remove `e' and all element after `e' from `l'
+    var next *list.Element
+    for ; e != nil; e = next {
+        next = e.Next()
+        l.Remove(e)
+    }
+    return l
+}
+
+type Top struct {
+    StateHead
+}
+
+func NewTop() (*Top, error) {
+    return &Top{MakeStateHead(nil)}, nil
+}
+
+func (top *Top) ID() string {
+    return TopStateID
+}
+
+func (top *Top) Init(hsm *HSM, event Event) (state State) {
+    return nil
+}
+
+func (top *Top) Entry(hsm *HSM, event Event) (state State) {
+    return nil
+}
+
+func (top *Top) Exit(hsm *HSM, event Event) (state State) {
+    return nil
+}
+
+func (top *Top) Handle(hsm *HSM, event Event) (state State) {
+    return nil
+}
+
 type S1 struct {
+    StateHead
 }
 
-func NewS1() (*S1, error) {
-    return &S1{}, nil
+func NewS1(super State) (*S1, error) {
+    return &S1{MakeStateHead(super)}, nil
 }
 
-func (*S1) Name() string {
+func (*S1) ID() string {
     return "S1"
 }
 
-func (*S1) Entry(event *Event) {
-    fmt.Println("S1:Entry event=", event)
+func (self *S1) Init(hsm *HSM, event Event) (state State) {
+    fmt.Println(self.ID(), ":Init event=", event)
+    hsm.QInit("S11")
+    return nil
 }
 
-func (*S1) Exit(event *Event) {
-    fmt.Println("S1:Exit event=", event)
+func (self *S1) Entry(hsm *HSM, event Event) (state State) {
+    fmt.Println(self.ID(), ":Entry event=", event)
+    return nil
+}
+
+func (self *S1) Exit(hsm *HSM, event Event) (state State) {
+    fmt.Println(self.ID(), ":Exit event=", event)
+    return nil
+}
+
+func (self *S1) Handle(hsm *HSM, event Event) (state State) {
+    fmt.Println(self.ID(), ":Handle event=", event)
+    return self.Super()
 }
 
 type S11 struct {
-    super S1
+    StateHead
 }
 
-func NewS11() (*S11, error) {
-    return &S11{}, nil
+func NewS11(super State) (*S11, error) {
+    return &S11{MakeStateHead(super)}, nil
 }
 
-func (*S11) Name() string {
+func (*S11) ID() string {
     return "S11"
 }
 
-func (*S11) Entry(event *Event) {
-    fmt.Println("S11:Entry event=", event)
+func (self *S11) Entry(hsm *HSM, event Event) (state State) {
+    fmt.Println(self.ID(), ":Entry event=", event)
+    return nil
 }
 
-func (*S11) Exit(event *Event) {
-    fmt.Println("S12:Exit event=", event)
+func (self *S11) Exit(hsm *HSM, event Event) (state State) {
+    fmt.Println(self.ID(), ":Exit event=", event)
+    return nil
+}
+
+func (self *S11) Handle(hsm *HSM, event Event) (state State) {
+    fmt.Println(self.ID(), ":Handle event=", event)
+    switch event.Type() {
+    case Event1:
+        hsm.QTran("S11", event)
+        return nil
+    case Event2:
+        hsm.QTran("S12", event)
+        return nil
+    }
+    return self.Super()
 }
 
 type S12 struct {
-    super S1
+    StateHead
 }
 
-func NewS12() (*S12, error) {
-    return &S12{}, nil
+func NewS12(super State) (*S12, error) {
+    return &S12{MakeStateHead(super)}, nil
 }
 
-func (*S12) Name() string {
+func (*S12) ID() string {
     return "S12"
 }
 
-func (*S12) Entry(event *Event) {
-    fmt.Printnl("S12:Entry event=", event)
+func (self *S12) Entry(hsm *HSM, event Event) (state State) {
+    fmt.Println(self.ID(), ":Entry event=", event)
+    return nil
 }
 
-func (*S12) Exit(event *Event) {
-    fmt.Println("S12:Exit event=", event)
+func (self *S12) Exit(hsm *HSM, event Event) (state State) {
+    fmt.Println(self.ID(), ":Exit event=", event)
+    return nil
 }
 
-type TopState struct {
+func (self *S12) Handle(hsm *HSM, event Event) (state State) {
+    fmt.Println(self.ID(), ":Handle event=", event)
+    switch event.Type() {
+    case Event2:
+        hsm.QTran("S11", event)
+        return nil
+    }
+    return self.Super()
 }
 
-func NewTopState() (*TopState, error) {
-    return &TopState{}
-}
-
-func (*TopState) Name() string {
-    return "TOP"
-}
-
-func (*TopState) Entry(event *Event) {
-    hsm.Tran("S1")
-    return
-}
-
-func (*TopState) Exit(event *Event) {
-    return
-}
-
-func main() {
-    top, err = NewTopState()
-    rootNode = NewState(nil, top)
-    s1, err = NewS1()
-    n1 = NewTreeNode(rootNode, s1)
-    rootNode.AddChild(n1)
-    s11, err = NewS11()
-    n11 = NewTreeNode(n1, s11)
-    n1.AddChild(n11)
-    s12, err = NewS12()
-    n12 = NewTreeNode(n1, s12)
-    n1.AddChild(n12)
-
+func NewWorld() (*HSM, error) {
+    top, _ := NewTop()
+    s1, _ := NewS1(top)
+    s11, _ := NewS11(s1)
+    s12, _ := NewS12(s1)
+    hsm, _ := NewHSM(top, s1)
+    hsm.StateTable[s1.ID()] = s1
+    hsm.StateTable[s11.ID()] = s11
+    hsm.StateTable[s12.ID()] = s12
+    hsm.Init()
+    return hsm, nil
 }
