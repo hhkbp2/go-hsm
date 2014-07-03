@@ -2,7 +2,13 @@ package hsm
 
 import "container/list"
 
+const (
+    HSMTypeStd = iota
+)
+
 type HSM interface {
+    Type() uint32
+
     Init()
     Dispatch(event Event)
 
@@ -14,6 +20,7 @@ type HSM interface {
 }
 
 type StdHSM struct {
+    HSMType     uint32
     SourceState State
     State       State
     StateTable  map[string]State
@@ -24,6 +31,7 @@ func NewStdHSM(top, initial State) *StdHSM {
     AssertEqual(TopStateID, top.ID())
     AssertEqual(InitialStateID, initial.ID())
     hsm := &StdHSM{
+        HSMType:     HSMTypeStd,
         SourceState: initial,
         State:       top,
         StateTable:  make(map[string]State),
@@ -32,6 +40,10 @@ func NewStdHSM(top, initial State) *StdHSM {
     // setup state table
     hsm.setupStateTable()
     return hsm
+}
+
+func (self *StdHSM) Type() uint32 {
+    return self.HSMType
 }
 
 func (self *StdHSM) setupStateTable() {
