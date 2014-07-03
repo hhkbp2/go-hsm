@@ -13,13 +13,13 @@ type Event interface {
 }
 
 type StdEvent struct {
-    Type_ uint32
+    EventType uint32
 }
 
-func NewStdEvent(type_ uint32) *StdEvent {
-    return &StdEvent{type_}
+func NewStdEvent(eventType uint32) *StdEvent {
+    return &StdEvent{eventType}
 }
 
 func (stdEvent *StdEvent) Type() uint32 {
-    return stdEvent.Type_
+    return stdEvent.EventType
 }
