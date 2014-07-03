@@ -97,10 +97,11 @@ func (self *Top) Handle(hsm HSM, event Event) (state State) {
 
 type Initial struct {
     StateHead
+    InitStateID string
 }
 
-func NewInitial(super State) *Initial {
-    object := &Initial{MakeStateHead(super)}
+func NewInitial(super State, initStateID string) *Initial {
+    object := &Initial{MakeStateHead(super), initStateID}
     super.AddChild(object)
     return object
 }
@@ -110,7 +111,7 @@ func (*Initial) ID() string {
 }
 
 func (self *Initial) Init(hsm HSM, event Event) (state State) {
-    hsm.QInit("S1")
+    hsm.QInit(self.InitStateID)
     return nil
 }
 
