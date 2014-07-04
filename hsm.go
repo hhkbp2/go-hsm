@@ -2,12 +2,14 @@ package hsm
 
 import "container/list"
 
+type HSMType uint32
+
 const (
     HSMTypeStd = iota
 )
 
 type HSM interface {
-    Type() uint32
+    Type() HSMType
 
     Init()
     Dispatch(event Event)
@@ -20,18 +22,18 @@ type HSM interface {
 }
 
 type StdHSM struct {
-    HSMType     uint32
+    MyType      HSMType
     SourceState State
     State       State
     StateTable  map[string]State
 }
 
 // initial must set top as parent
-func NewStdHSM(HSMType uint32, top, initial State) *StdHSM {
+func NewStdHSM(myType HSMType, top, initial State) *StdHSM {
     AssertEqual(TopStateID, top.ID())
     AssertEqual(InitialStateID, initial.ID())
     hsm := &StdHSM{
-        HSMType:     HSMType,
+        MyType:      myType,
         SourceState: initial,
         State:       top,
         StateTable:  make(map[string]State),
@@ -42,8 +44,8 @@ func NewStdHSM(HSMType uint32, top, initial State) *StdHSM {
     return hsm
 }
 
-func (self *StdHSM) Type() uint32 {
-    return self.HSMType
+func (self *StdHSM) Type() HSMType {
+    return self.MyType
 }
 
 func (self *StdHSM) setupStateTable() {
@@ -61,7 +63,7 @@ func (self *StdHSM) setupStateTable() {
 }
 
 func (self *StdHSM) Init() {
-    self.Init2(self, &StdEvent{EventInit})
+    self.Init2(self, StdEvents[EventInit])
 }
 
 func (self *StdHSM) Init2(hsm HSM, event Event) {
@@ -76,17 +78,17 @@ func (self *StdHSM) Init2(hsm HSM, event Event) {
     // top-most initial transition
     Trigger(hsm, self.SourceState, event)
     // initial transition must go *one* level deep
-    AssertEqual(s, Trigger(hsm, self.State, &StdEvent{EventEmpty}))
+    AssertEqual(s, Trigger(hsm, self.State, StdEvents[EventEmpty]))
     // update the termporary
     s = self.State
     // enter the state
-    Trigger(hsm, s, &StdEvent{EventEntry})
-    for Trigger(hsm, s, &StdEvent{EventInit}) == nil { // init handled?
+    Trigger(hsm, s, StdEvents[EventEntry])
+    for Trigger(hsm, s, StdEvents[EventInit]) == nil { // init handled?
         // initial transition must go *one* level deep
-        AssertEqual(s, Trigger(hsm, self.State, &StdEvent{EventEmpty}))
+        AssertEqual(s, Trigger(hsm, self.State, StdEvents[EventEmpty]))
         s = self.State
         // enter the substate
-        Trigger(hsm, s, &StdEvent{EventEntry})
+        Trigger(hsm, s, StdEvents[EventEntry])
     }
     // we are in well-initialized state now
 }
@@ -115,7 +117,7 @@ func (self *StdHSM) IsIn(stateID string) bool {
 func (self *StdHSM) isIn(state State) bool {
     // nagivate from current state up to all super state and
     // try to find specified `state'
-    for s := self.State; s != nil; s = Trigger(self, self.State, &StdEvent{EventEmpty}) {
+    for s := self.State; s != nil; s = Trigger(self, self.State, StdEvents[EventEmpty]) {
         if s == state {
             // a match is found
             return true
@@ -151,11 +153,11 @@ func (self *StdHSM) QTran2(hsm HSM, target State) {
     for s := self.State; s != self.SourceState; {
         // we are about to dereference `s'
         AssertNotEqual(nil, s)
-        t := Trigger(hsm, s, &StdEvent{EventExit})
+        t := Trigger(hsm, s, StdEvents[EventExit])
         if t != nil {
             s = t
         } else {
-            s = Trigger(hsm, s, &StdEvent{EventEmpty})
+            s = Trigger(hsm, s, StdEvents[EventEmpty])
         }
     }
 
@@ -167,38 +169,38 @@ func (self *StdHSM) QTran2(hsm HSM, target State) {
 
     // (a) check `SourceState' == `target' (transition to self)
     if self.SourceState == target {
-        Trigger(hsm, self.SourceState, &StdEvent{EventExit})
+        Trigger(hsm, self.SourceState, StdEvents[EventExit])
         goto inLCA
     }
     // (b) check `SourceState' == `target.Super()'
-    p = Trigger(hsm, target, &StdEvent{EventEmpty})
+    p = Trigger(hsm, target, StdEvents[EventEmpty])
     if self.SourceState == p {
         goto inLCA
     }
     // (c) check `SourceState.Super()' == `target.Super()' (most common)
-    q = Trigger(hsm, self.SourceState, &StdEvent{EventEmpty})
+    q = Trigger(hsm, self.SourceState, StdEvents[EventEmpty])
     if q == p {
-        Trigger(hsm, self.SourceState, &StdEvent{EventExit})
+        Trigger(hsm, self.SourceState, StdEvents[EventExit])
         goto inLCA
     }
     // (d) check `SourceState.Super()' == `target'
     if q == target {
-        Trigger(hsm, self.SourceState, &StdEvent{EventExit})
+        Trigger(hsm, self.SourceState, StdEvents[EventExit])
         stateChain.Remove(stateChain.Back())
         goto inLCA
     }
     // (e) check rest of `SourceState' == `target.Super().Super()...'  hierarchy
     stateChain.PushBack(p)
-    s = Trigger(hsm, p, &StdEvent{EventEmpty})
+    s = Trigger(hsm, p, StdEvents[EventEmpty])
     for s != nil {
         if self.SourceState == s {
             goto inLCA
         }
         stateChain.PushBack(s)
-        s = Trigger(hsm, s, &StdEvent{EventEmpty})
+        s = Trigger(hsm, s, StdEvents[EventEmpty])
     }
     // exit source state
-    Trigger(hsm, self.SourceState, &StdEvent{EventExit})
+    Trigger(hsm, self.SourceState, StdEvents[EventExit])
     // (f) check rest of `SourceState.Super()' == `target.Super().Super()...'
     for lca := stateChain.Back(); lca != nil; lca = lca.Prev() {
         if q == lca.Value {
@@ -208,14 +210,14 @@ func (self *StdHSM) QTran2(hsm HSM, target State) {
         }
     }
     // (g) check each `SourceState.Super().Super()...' for target...
-    for s = q; s != nil; s = Trigger(hsm, s, &StdEvent{EventEmpty}) {
+    for s = q; s != nil; s = Trigger(hsm, s, StdEvents[EventEmpty]) {
         for lca := stateChain.Back(); lca != nil; lca = lca.Prev() {
             if s == lca.Value {
                 stateChain = ListTruncate(stateChain, lca)
                 goto inLCA
             }
         }
-        Trigger(hsm, s, &StdEvent{EventExit})
+        Trigger(hsm, s, StdEvents[EventExit])
     }
     // malformed HSM
     AssertTrue(false)
@@ -224,16 +226,16 @@ inLCA: // now we are in the LCA of `SourceState' and `target'
     for e := stateChain.Back(); e != nil && e.Value != nil; {
         s, ok := e.Value.(State)
         AssertEqual(true, ok)
-        Trigger(hsm, s, &StdEvent{EventEntry}) // enter `s' state
+        Trigger(hsm, s, StdEvents[EventEntry]) // enter `s' state
         stateChain.Remove(stateChain.Back())
         e = stateChain.Back()
     }
     // update current state
     self.State = target
-    for Trigger(hsm, target, &StdEvent{EventInit}) == nil {
+    for Trigger(hsm, target, StdEvents[EventInit]) == nil {
         // initial transition must go *one* level deep
-        AssertEqual(s, Trigger(hsm, self.State, &StdEvent{EventEmpty}))
+        AssertEqual(s, Trigger(hsm, self.State, StdEvents[EventEmpty]))
         target = self.State
-        Trigger(hsm, target, &StdEvent{EventEntry})
+        Trigger(hsm, target, StdEvents[EventEntry])
     }
 }

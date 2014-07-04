@@ -1,5 +1,7 @@
 package hsm
 
+type EventType uint32
+
 const (
     EventEmpty = iota
     EventInit
@@ -8,18 +10,25 @@ const (
     EventUser
 )
 
+var StdEvents = map[EventType]*StdEvent{
+    EventEmpty: NewStdEvent(EventEmpty),
+    EventInit:  NewStdEvent(EventInit),
+    EventEntry: NewStdEvent(EventEntry),
+    EventExit:  NewStdEvent(EventExit),
+}
+
 type Event interface {
-    Type() uint32
+    Type() EventType
 }
 
 type StdEvent struct {
-    EventType uint32
+    EventType EventType
 }
 
-func NewStdEvent(eventType uint32) *StdEvent {
+func NewStdEvent(eventType EventType) *StdEvent {
     return &StdEvent{eventType}
 }
 
-func (stdEvent *StdEvent) Type() uint32 {
+func (stdEvent *StdEvent) Type() EventType {
     return stdEvent.EventType
 }
