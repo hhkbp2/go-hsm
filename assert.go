@@ -53,3 +53,11 @@ func AssertFalse(value bool) {
         panic(fmt.Sprintf("False(value=%#v) fail", value))
     }
 }
+
+func AssertNil(value interface{}) {
+    AssertEqual(nil, value)
+}
+
+func AssertNotNil(value interface{}) {
+    AssertNotEqual(nil, value)
+}
