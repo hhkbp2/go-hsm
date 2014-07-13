@@ -26,10 +26,10 @@ type StateHead struct {
     children *list.List
 }
 
-func MakeStateHead(super State) StateHead {
+func NewStateHead(super State) *StateHead {
     children := list.New()
     children.Init()
-    return StateHead{
+    return &StateHead{
         super:    super,
         children: children,
     }
@@ -68,11 +68,11 @@ func (self *StateHead) Exit(hsm HSM, event Event) (state State) {
 }
 
 type Top struct {
-    StateHead
+    *StateHead
 }
 
 func NewTop() *Top {
-    return &Top{MakeStateHead(nil)}
+    return &Top{NewStateHead(nil)}
 }
 
 func (self *Top) ID() string {
@@ -96,12 +96,12 @@ func (self *Top) Handle(hsm HSM, event Event) (state State) {
 }
 
 type Initial struct {
-    StateHead
+    *StateHead
     InitStateID string
 }
 
 func NewInitial(super State, initStateID string) *Initial {
-    object := &Initial{MakeStateHead(super), initStateID}
+    object := &Initial{NewStateHead(super), initStateID}
     super.AddChild(object)
     return object
 }
@@ -121,11 +121,11 @@ func (self *Initial) Handle(hsm HSM, event Event) (state State) {
 }
 
 type Terminal struct {
-    StateHead
+    *StateHead
 }
 
 func NewTerminal(super State) *Terminal {
-    object := &Terminal{MakeStateHead(super)}
+    object := &Terminal{NewStateHead(super)}
     super.AddChild(object)
     return object
 }
