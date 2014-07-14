@@ -206,7 +206,7 @@ func (self *StdHSM) QTran2(hsm HSM, target State) {
     for lca := stateChain.Back(); lca != nil; lca = lca.Prev() {
         if q == lca.Value {
             // do not enter the LCA
-            stateChain.Remove(stateChain.Back())
+            stateChain = ListTruncate(stateChain, lca)
             goto inLCA
         }
     }
@@ -235,7 +235,7 @@ inLCA: // now we are in the LCA of `SourceState' and `target'
     self.State = target
     for Trigger(hsm, target, StdEvents[EventInit]) == nil {
         // initial transition must go *one* level deep
-        AssertEqual(s, Trigger(hsm, self.State, StdEvents[EventEmpty]))
+        AssertEqual(target, Trigger(hsm, self.State, StdEvents[EventEmpty]))
         target = self.State
         Trigger(hsm, target, StdEvents[EventEntry])
     }
