@@ -6,6 +6,7 @@ type HSMType uint32
 
 const (
     HSMTypeStd = iota
+    HSMTypeUser
 )
 
 type HSM interface {
