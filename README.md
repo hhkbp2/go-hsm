@@ -1,7 +1,7 @@
 go-hsm
 ======
 
-```go-hsm``` is a Golang Library that implements the Hierarchical State Machine(HSM).
+```go-hsm``` is a Golang library that implements the Hierarchical State Machine(HSM).
 
 Hierarchical State Machine(HSM) is a method to express state machine. It's introduced in the book [```Practical Statecharts in C/C++: Quantum Programming for Embedded System```][qp-book-homepage] by Dr. Miro M. Samek. Comparing to the traditional methods to implement state machine(e.g. nested if-else/switch, state table, state design pattern in OOP), HSM provides some major advantage as the followings:
 
