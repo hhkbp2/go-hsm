@@ -4,32 +4,50 @@ import "container/list"
 
 type HSMType uint32
 
+// The types of HSM.
 const (
-    HSMTypeStd = iota
+    HSMTypeStd HSMType = iota
     HSMTypeUser
 )
 
+// HSM represents the interface that every state machine class
+// should implement.
 type HSM interface {
+    // Returns the type of this hsm
     Type() HSMType
 
+    // Runs the initialization of this hsm
     Init()
+    // Dispatch event to state machine
     Dispatch(event Event)
 
+    // Returns current state of this hsm
     GetState() State
+    // Tests whether this hsm is in specified state. It works no matter
+    // stateID is in any level as a parent state of current state.
     IsIn(stateID string) bool
 
+    // Transfer to specified target state during state intialization.
     QInit(targetStateID string)
+    // Transfer to specified target state as normal state transfer.
     QTran(targetStateID string)
 }
 
+// StdHSM is the default HSM implementation.
+// Any HSM derived could reuse it as anonymous field.
 type StdHSM struct {
-    MyType      HSMType
+    // The type of concrete HSM
+    MyType HSMType
+    // The state that handles event(it could Super(), Super().Super(), ...)
+    // of current state
     SourceState State
-    State       State
-    StateTable  map[string]State
+    // The current state(it could be child, child's child of SourceState)
+    State State
+    // The global map for all states and their names in this state machine
+    StateTable map[string]State
 }
 
-// initial must set top as parent
+// Constructor for StdHSM. The initial must set top as parent state.
 func NewStdHSM(myType HSMType, top, initial State) *StdHSM {
     AssertEqual(TopStateID, top.ID())
     AssertEqual(InitialStateID, initial.ID())
@@ -49,6 +67,8 @@ func (self *StdHSM) Type() HSMType {
     return self.MyType
 }
 
+// setupStateTable() initializes StateTable properly
+// with all states and their names.
 func (self *StdHSM) setupStateTable() {
     for traverse_queue := self.State.Children(); len(traverse_queue) != 0; {
         state := traverse_queue[0]
@@ -63,10 +83,14 @@ func (self *StdHSM) setupStateTable() {
     }
 }
 
+// Init() is part of interface HSM.
 func (self *StdHSM) Init() {
     self.Init2(self, StdEvents[EventInit])
 }
 
+// Init2() is a helper function to initialize the whole state machine.
+// All state initialization actions started from initial state
+// would be triggered.
 func (self *StdHSM) Init2(hsm HSM, event Event) {
     // health check
     AssertNotEqual(nil, self.State)
@@ -94,10 +118,12 @@ func (self *StdHSM) Init2(hsm HSM, event Event) {
     // we are in well-initialized state now
 }
 
+// Dispatch() is part of interface HSM.
 func (self *StdHSM) Dispatch(event Event) {
     self.Dispatch2(self, event)
 }
 
+// Dispatch2() is a helper function to dispatch event to the concrete HSM.
 func (self *StdHSM) Dispatch2(hsm HSM, event Event) {
     // Use `SourceState' to record the state which handle the event indeed(which
     // could be super, super-super, ... state).
@@ -107,14 +133,20 @@ func (self *StdHSM) Dispatch2(hsm HSM, event Event) {
     }
 }
 
+// GetState() is part of interface HSM.
 func (self *StdHSM) GetState() State {
     return self.State
 }
+
+// IsIn() is part of interface HSM.
 func (self *StdHSM) IsIn(stateID string) bool {
     state := self.StateTable[stateID]
     return self.isIn(state)
 }
 
+// isIn() is a helper function for IsIn().
+// It will traverse from current state up to top state to find
+// the specified state, util it finds a match or reachs top with failture.
 func (self *StdHSM) isIn(state State) bool {
     // nagivate from current state up to all super state and
     // try to find specified `state'
@@ -128,20 +160,24 @@ func (self *StdHSM) isIn(state State) bool {
     return false
 }
 
+// QInit() is part of interface HSM.
 func (self *StdHSM) QInit(targetStateID string) {
     target := self.LookupState(targetStateID)
     self.qinit(target)
 }
 
+// qinit() is a helper function for QInit().
 func (self *StdHSM) qinit(state State) {
     self.State = state
 }
 
+// QTran() is part of interface HSM.
 func (self *StdHSM) QTran(targetStateID string) {
     target := self.LookupState(targetStateID)
     self.QTran2(self, target)
 }
 
+// LookupState() search the specified state in state/name map.
 func (self *StdHSM) LookupState(targetStateID string) State {
     AssertNotEqual(TopStateID, targetStateID)
     target, ok := self.StateTable[targetStateID]
@@ -149,6 +185,10 @@ func (self *StdHSM) LookupState(targetStateID string) State {
     return target
 }
 
+// QTran2() is a helper function for QTran().
+// It's separated from QTran() in order to deliver the concrete HSM
+// (which is the first arguemnt of QTran2()) rather than just
+// the embedded StdHSM to the state transfer procedure.
 func (self *StdHSM) QTran2(hsm HSM, target State) {
     var p, q, s State
     for s := self.State; s != self.SourceState; {
