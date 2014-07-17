@@ -11,7 +11,7 @@ Hierarchical State Machine(HSM) is a method to express state machine. It's intro
 
 The book mentioned above gives an elaboration on state machine and HSM. For more details, please refer to it.
 
-Whenever there arises the requirement to write codes which has high complexity but need to be definitely correct, state machine is a promising way to get there. HSM is a great pattern to express state machine. And HSM is the most powerful pattern I know so far. At the moment I ran into some Golang project like [```Raft```][raftconsensus-homepage], HSM occurs to me. So I port HSM to Golang and create this project.
+Whenever there arises the requirement to write codes which have high complexity but need to be definitely correct, state machine is a promising way to get there. HSM is a great pattern to express state machine. And HSM is the most powerful pattern I know so far. At the moment I ran into some Golang project like [```Raft```][raftconsensus-homepage], HSM occurs to me. So I port HSM to Golang and create this project.
 
 ## Port HSM to Golang
 
@@ -25,7 +25,7 @@ IMO, implementing HSM in this way isn't perfect. There are some pitfalls:
 
 1. To define a new state, you always need to write super.AddChild() in the New() constructor, which I consider as a abstraction leak. Anyway it's boring.
 2. Defining states could be lot of chunks of codes to write. All of states have the similar Entry/Exit/Handle code structure. To provide some kinds of code template for code reusage, the lack of meta programming ability in Golang leads me to a DSL and code generator, which is too heavy and too complicated.
-3. The type casts when handling event. Casting is inevitable in such a generic framework. But I don't think the library user should write these codes by hand again and again. It's unwelcomed especially while assert is taken out from language libraries in Golang, although casting needs it to ensure type correctness. (IMO, assert is a dark corner in Golang. The language just take it out. But when someone revives it as a library(see [testify.assert][testify-github]), people find it quite usefull and wants it.
+3. The type casts when handling event. Casting is inevitable in such a generic framework. But I don't think the library user should write these codes by hand again and again. It's unwelcomed especially while assert is taken out from language libraries in Golang, although casting needs it to ensure type correctness. (IMO, assert is a dark corner in Golang. The language just takes it out. But when someone revives it as a library(see [testify.assert][testify-github]), people find it quite useful and want it.
 
 
 ## The Missings
