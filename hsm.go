@@ -31,6 +31,9 @@ type HSM interface {
     QInit(targetStateID string)
     // Transfer to specified target state as normal state transfer.
     QTran(targetStateID string)
+    // Transfer to specified target state as normal state transfer,
+    // along with specified event dispatched during transfer procedure.
+    QTranOnEvent(targetStateID string, event Event)
 }
 
 // StdHSM is the default HSM implementation.
@@ -150,7 +153,8 @@ func (self *StdHSM) IsIn(stateID string) bool {
 func (self *StdHSM) isIn(state State) bool {
     // nagivate from current state up to all super state and
     // try to find specified `state'
-    for s := self.State; s != nil; s = Trigger(self, self.State, StdEvents[EventEmpty]) {
+    s := self.State
+    for ; s != nil; s = Trigger(self, self.State, StdEvents[EventEmpty]) {
         if s == state {
             // a match is found
             return true
@@ -174,7 +178,7 @@ func (self *StdHSM) qinit(state State) {
 // QTran() is part of interface HSM.
 func (self *StdHSM) QTran(targetStateID string) {
     target := self.LookupState(targetStateID)
-    self.QTran2(self, target)
+    self.QTranHSM(self, target)
 }
 
 // LookupState() search the specified state in state/name map.
@@ -189,12 +193,37 @@ func (self *StdHSM) LookupState(targetStateID string) State {
 // It's separated from QTran() in order to deliver the concrete HSM
 // (which is the first arguemnt of QTran2()) rather than just
 // the embedded StdHSM to the state transfer procedure.
-func (self *StdHSM) QTran2(hsm HSM, target State) {
+func (self *StdHSM) QTranHSM(hsm HSM, target State) {
+    self.QTranHSMOnEvents(
+        hsm,
+        target,
+        StdEvents[EventEntry],
+        StdEvents[EventInit],
+        StdEvents[EventExit])
+}
+
+// QTranOnEvent() is a variant function of QTran().
+// Instead of dispatching the default events of
+// `EventEntry'/`EventInit'/`EventExit', this function would dispatch
+// the given event along the state transfer procedure.
+func (self *StdHSM) QTranOnEvent(targetStateID string, event Event) {
+    target := self.LookupState(targetStateID)
+    self.QTranHSMOnEvent(self, target, event)
+}
+
+func (self *StdHSM) QTranHSMOnEvent(hsm HSM, target State, event Event) {
+    self.QTranHSMOnEvents(hsm, target, event, event, event)
+}
+
+// QTranOnEvents() is the implementation of QTran* functions.
+func (self *StdHSM) QTranHSMOnEvents(
+    hsm HSM, target State, entryEvent, initEvent, exitEvent Event) {
+
     var p, q, s State
     for s := self.State; s != self.SourceState; {
         // we are about to dereference `s'
         AssertNotEqual(nil, s)
-        t := Trigger(hsm, s, StdEvents[EventExit])
+        t := Trigger(hsm, s, exitEvent)
         if t != nil {
             s = t
         } else {
@@ -210,7 +239,7 @@ func (self *StdHSM) QTran2(hsm HSM, target State) {
 
     // (a) check `SourceState' == `target' (transition to self)
     if self.SourceState == target {
-        Trigger(hsm, self.SourceState, StdEvents[EventExit])
+        Trigger(hsm, self.SourceState, exitEvent)
         goto inLCA
     }
     // (b) check `SourceState' == `target.Super()'
@@ -221,12 +250,12 @@ func (self *StdHSM) QTran2(hsm HSM, target State) {
     // (c) check `SourceState.Super()' == `target.Super()' (most common)
     q = Trigger(hsm, self.SourceState, StdEvents[EventEmpty])
     if q == p {
-        Trigger(hsm, self.SourceState, StdEvents[EventExit])
+        Trigger(hsm, self.SourceState, exitEvent)
         goto inLCA
     }
     // (d) check `SourceState.Super()' == `target'
     if q == target {
-        Trigger(hsm, self.SourceState, StdEvents[EventExit])
+        Trigger(hsm, self.SourceState, exitEvent)
         stateChain.Remove(stateChain.Back())
         goto inLCA
     }
@@ -241,7 +270,7 @@ func (self *StdHSM) QTran2(hsm HSM, target State) {
         s = Trigger(hsm, s, StdEvents[EventEmpty])
     }
     // exit source state
-    Trigger(hsm, self.SourceState, StdEvents[EventExit])
+    Trigger(hsm, self.SourceState, exitEvent)
     // (f) check rest of `SourceState.Super()' == `target.Super().Super()...'
     for lca := stateChain.Back(); lca != nil; lca = lca.Prev() {
         if q == lca.Value {
@@ -258,7 +287,7 @@ func (self *StdHSM) QTran2(hsm HSM, target State) {
                 goto inLCA
             }
         }
-        Trigger(hsm, s, StdEvents[EventExit])
+        Trigger(hsm, s, exitEvent)
     }
     // malformed HSM
     AssertTrue(false)
@@ -267,16 +296,16 @@ inLCA: // now we are in the LCA of `SourceState' and `target'
     for e := stateChain.Back(); e != nil && e.Value != nil; {
         s, ok := e.Value.(State)
         AssertEqual(true, ok)
-        Trigger(hsm, s, StdEvents[EventEntry]) // enter `s' state
+        Trigger(hsm, s, entryEvent) // enter `s' state
         stateChain.Remove(stateChain.Back())
         e = stateChain.Back()
     }
     // update current state
     self.State = target
-    for Trigger(hsm, target, StdEvents[EventInit]) == nil {
+    for Trigger(hsm, target, initEvent) == nil {
         // initial transition must go *one* level deep
         AssertEqual(target, Trigger(hsm, self.State, StdEvents[EventEmpty]))
         target = self.State
-        Trigger(hsm, target, StdEvents[EventEntry])
+        Trigger(hsm, target, entryEvent)
     }
 }
