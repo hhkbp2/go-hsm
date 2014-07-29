@@ -20,6 +20,18 @@ func Trigger(hsm HSM, state State, event Event) State {
     }
 }
 
+func TriggerInit(hsm HSM, state State, event Event) State {
+    return state.Init(hsm, event)
+}
+
+func TriggerEntry(hsm HSM, state State, event Event) State {
+    return state.Entry(hsm, event)
+}
+
+func TriggerExit(hsm HSM, state State, event Event) State {
+    return state.Exit(hsm, event)
+}
+
 // ListTruncate() removes elements from `e' to the last element in list `l'.
 // The range to be removed is [e, l.Back()]. It returns list `l'.
 func ListTruncate(l *list.List, e *list.Element) *list.List {
