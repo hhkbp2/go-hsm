@@ -232,8 +232,6 @@ func (self *StdHSM) QTranHSMOnEvents(
     }
 
     stateChain := list.New()
-    stateChain.Init()
-
     stateChain.PushBack(nil)
     stateChain.PushBack(target)
 
