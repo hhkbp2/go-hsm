@@ -46,7 +46,6 @@ type StateHead struct {
 // NewStateHead() is the constructor for StateHead.
 func NewStateHead(super State) *StateHead {
     children := list.New()
-    children.Init()
     return &StateHead{
         super:    super,
         children: children,
