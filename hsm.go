@@ -262,7 +262,7 @@ func (self *StdHSM) QTranHSMOnEvents(
 		var ok bool
 		for e := chain.Actions.Front(); e != nil; e = e.Next() {
 			action, ok = e.Value.(*StaticTranAction)
-			AssertEqual(true, ok)
+			AssertTrue(ok)
 			switch action.Event.Type() {
 			case EventInit:
 				action.State.Init(hsm, initEvent)
@@ -350,7 +350,7 @@ inLCA: // now we are in the LCA of `SourceState' and `target'
 	// retrace the entry path in reverse order
 	for e := stateChain.Back(); e != nil; e = e.Prev() {
 		s, ok := e.Value.(State)
-		AssertEqual(true, ok)
+		AssertTrue(ok)
 		RecordEntry(actions, hsm, s, entryEvent) // enter `s' state
 	}
 	// update current state
@@ -480,7 +480,7 @@ inLCA: // now we are in the LCA of `SourceState' and `target'
 	// retrace the entry path in reverse order
 	for e := stateChain.Back(); e != nil; e = e.Prev() {
 		s, ok := e.Value.(State)
-		AssertEqual(true, ok)
+		AssertTrue(ok)
 		TriggerEntry(hsm, s, entryEvent) // enter `s' state
 	}
 	// update current state
