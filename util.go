@@ -32,6 +32,42 @@ func TriggerExit(hsm HSM, state State, event Event) State {
 	return state.Exit(hsm, event)
 }
 
+func Record(
+	stdEvent Event, actions *list.List, hsm HSM, state State, event Event) {
+
+	var trigger func(hsm HSM, state State, event Event) State
+	switch stdEvent.Type() {
+	case EventInit:
+		trigger = TriggerInit
+	case EventEntry:
+		trigger = TriggerEntry
+	case EventExit:
+		trigger = TriggerExit
+	default:
+		// invalid call
+		AssertTrue(false)
+	}
+	if trigger(hsm, state, event) == nil {
+		action := &StaticTranAction{
+			State: state,
+			Event: stdEvent,
+		}
+		actions.PushBack(action)
+	}
+}
+
+func RecordInit(actions *list.List, hsm HSM, state State, event Event) {
+	Record(StdEvents[EventInit], actions, hsm, state, event)
+}
+
+func RecordEntry(actions *list.List, hsm HSM, state State, event Event) {
+	Record(StdEvents[EventEntry], actions, hsm, state, event)
+}
+
+func RecordExit(actions *list.List, hsm HSM, state State, event Event) {
+	Record(StdEvents[EventExit], actions, hsm, state, event)
+}
+
 // ListTruncate() removes elements from `e' to the last element in list `l'.
 // The range to be removed is [e, l.Back()]. It returns list `l'.
 func ListTruncate(l *list.List, e *list.Element) *list.List {
