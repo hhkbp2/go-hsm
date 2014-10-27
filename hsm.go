@@ -263,6 +263,10 @@ func (self *StdHSM) QTranHSMOnEvents(
 		for e := chain.Actions.Front(); e != nil; e = e.Next() {
 			action, ok = e.Value.(*StaticTranAction)
 			AssertTrue(ok)
+			if action.Event.Type() == EventEmpty {
+				// stop at the sentinal
+				break
+			}
 			switch action.Event.Type() {
 			case EventInit:
 				action.State.Init(hsm, initEvent)
@@ -366,6 +370,11 @@ inLCA: // now we are in the LCA of `SourceState' and `target'
 		target = self.State
 		RecordEntry(actions, hsm, target, entryEvent) // enter target
 	}
+	action := &StaticTranAction{
+		State: target,
+		Event: StdEvents[EventEmpty], // use empty event as a stop sentinal
+	}
+	actions.PushBack(action)
 	return &StaticTranChain{
 		Actions: actions,
 	}
