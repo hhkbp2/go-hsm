@@ -30,14 +30,11 @@ IMO, implementing HSM in this way isn't perfect. There are some pitfalls:
 
 ## The Missings
 
-This project contains only the HSM, briefly a method to construct state machine and dispatch events. It's not a full Quantum Framework. So there are a lot missing:
+This project contains only the HSM, briefly a method to construct state machine and dispatch events. It's not targeted for a full Quantum Framework. But there are still some pieces missing:
 
-1. other state machine methods, e.g. FSM or optimized FSM
-2. concurrency mechanism, e.g. go-routine
 3. composite states
 4. local and external transitions, internal transitions
 5. event queuing
-6. orthogonal regions
 7. validation of state machine structure, with checks for:
     * machine having single top state
     * unreachable states
