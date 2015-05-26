@@ -44,10 +44,16 @@ This project contains only the HSM, briefly a method to construct state machine 
 
 ## Usage
 
-Refer to the project [```go-hsm-examples```][go-hsm-examples-github].
+In the directory ```example``` there are examples demonostrating how to use go-hsm to write state machine, each example has its graphical state chart.
+
+### 1. C Comment Parser
+
+In the sub-directory ```c_comment```.
+
+### 2. An Annotated State Chart
+In the sub-directory ```annotated```.
 
 
-[go-hsm-examples-github]: https://github.com/hhkbp2/go-hsm-examples
 [qp-book-homepage]: http://www.state-machine.com/psicc/
 [raftconsensus-homepage]: http://raftconsensus.github.io/
 [testify-github]: https://github.com/stretchr/testify
